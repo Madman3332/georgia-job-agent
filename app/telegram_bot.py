@@ -4,19 +4,27 @@ import time
 from dotenv import load_dotenv
 from database import update_setting, get_setting
 
+# Load local .env (harmless on Railway)
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+if not TELEGRAM_TOKEN:
+    raise RuntimeError("TELEGRAM_TOKEN is missing. Set it in .env locally or Railway Variables.")
+
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
 last_update_id = None
 
 
 def send_message(chat_id, text):
-    requests.post(f"{BASE_URL}/sendMessage", data={
-        "chat_id": chat_id,
-        "text": text
-    })
+    requests.post(
+        f"{BASE_URL}/sendMessage",
+        data={
+            "chat_id": chat_id,
+            "text": text
+        }
+    )
 
 
 def handle_updates():
@@ -30,6 +38,9 @@ def handle_updates():
     response = requests.get(f"{BASE_URL}/getUpdates", params=params)
     updates = response.json()
 
+    if not updates.get("result"):
+        return
+
     for update in updates["result"]:
         last_update_id = update["update_id"]
 
@@ -39,6 +50,8 @@ def handle_updates():
 
         chat_id = message["chat"]["id"]
         text = message.get("text", "")
+
+        # --- COMMANDS ---
 
         if text.startswith("/set_salary"):
             try:
@@ -56,5 +69,10 @@ def handle_updates():
         elif text.startswith("/show_settings"):
             salary = get_setting("min_salary")
             keywords = get_setting("keywords")
-            send_message(chat_id,
-                         f"📌 Current Settings:\n\n💰 Min Salary: {salary} GEL\n🔎 Keywords: {keywords}")
+
+            send_message(
+                chat_id,
+                f"📌 Current Settings:\n\n"
+                f"💰 Min Salary: {salary} GEL\n"
+                f"🔎 Keywords: {keywords}"
+            )
